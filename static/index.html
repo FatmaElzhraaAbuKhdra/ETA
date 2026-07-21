@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ETA Sync — هيئة الضرائب المصرية</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Tahoma,sans-serif;background:#f1f5f9;color:#1e293b;direction:rtl}
+  :root{--accent:#1d4ed8;--green:#16a34a;--red:#dc2626;--yellow:#d97706;--card:#fff;--border:#e2e8f0;--muted:#64748b}
+
+  header{background:#0f172a;color:#fff;padding:0 24px;display:flex;align-items:center;gap:16px;height:56px}
+  header .logo{background:#1d4ed8;font-size:20px;font-weight:900;padding:4px 14px;border-radius:6px}
+  header h1{font-size:16px;font-weight:600}
+  header .sub{font-size:12px;color:#64748b;margin-right:auto}
+  #apiStatus{font-size:12px;padding:4px 12px;border-radius:20px;background:#1e293b}
+  #apiStatus.ok{background:#14532d;color:#86efac}
+  #apiStatus.err{background:#450a0a;color:#fca5a5}
+
+  .stats-bar{display:flex;gap:12px;padding:16px 24px;overflow-x:auto}
+  .stat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 20px;min-width:150px;flex:1}
+  .stat-card .val{font-size:28px;font-weight:700;color:var(--accent)}
+  .stat-card .lbl{font-size:12px;color:var(--muted);margin-top:2px}
+
+  .tabs{display:flex;gap:0;padding:0 24px;border-bottom:2px solid var(--border);background:#fff}
+  .tab{padding:12px 20px;cursor:pointer;font-size:14px;font-weight:500;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px;transition:.15s}
+  .tab:hover{color:#1e293b}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+  .panel{display:none;padding:20px 24px}
+  .panel.active{display:block}
+
+  .toolbar{display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap}
+  .toolbar input,.toolbar select{padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:#fff;outline:none;min-width:180px}
+  .toolbar input:focus,.toolbar select:focus{border-color:var(--accent)}
+  .btn{padding:8px 18px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:.15s}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{background:#1e40af}
+  .btn-ghost{background:var(--border);color:#1e293b}
+  .btn-ghost:hover{background:#cbd5e1}
+
+  .table-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--border)}
+  table{width:100%;border-collapse:collapse;font-size:13px;background:var(--card)}
+  thead tr{background:#f8fafc}
+  th{padding:10px 14px;text-align:right;font-weight:600;color:var(--muted);white-space:nowrap;border-bottom:1px solid var(--border)}
+  td{padding:10px 14px;border-bottom:1px solid #f1f5f9;vertical-align:top;max-width:320px;word-break:break-word}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:#f8fafc}
+
+  .badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600}
+  .badge-green{background:#dcfce7;color:#166534}
+  .badge-red{background:#fee2e2;color:#991b1b}
+  .badge-yellow{background:#fef9c3;color:#854d0e}
+  .badge-blue{background:#dbeafe;color:#1e40af}
+  .badge-gray{background:#f1f5f9;color:#475569}
+
+  .pagination{display:flex;gap:8px;align-items:center;margin-top:16px;justify-content:center}
+  .pagination button{padding:6px 14px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:13px}
+  .pagination button:hover:not(:disabled){background:#f1f5f9}
+  .pagination button:disabled{opacity:.4;cursor:default}
+  .pagination .info{font-size:13px;color:var(--muted);padding:0 8px}
+
+  .loading,.empty{text-align:center;padding:40px;color:var(--muted);font-size:14px}
+  .spinner{display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-left:8px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .link-btn{background:none;border:none;color:var(--accent);cursor:pointer;font-size:12px;text-decoration:underline;font-family:inherit}
+
+  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center}
+  .overlay.open{display:flex}
+  .modal{background:#fff;border-radius:12px;padding:24px;max-width:680px;width:95%;max-height:80vh;overflow-y:auto;direction:rtl}
+  .modal h3{font-size:16px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:12px}
+  .modal .close{float:left;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)}
+  .modal .row{display:flex;gap:8px;margin-bottom:8px;font-size:13px}
+  .modal .row b{min-width:120px;color:var(--muted)}
+  .modal .body-text{background:#f8fafc;border-radius:8px;padding:12px;font-size:13px;line-height:1.7;white-space:pre-wrap;margin-top:12px;border:1px solid var(--border)}
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">ETA</span>
+  <div>
+    <h1>هيئة الضرائب المصرية</h1>
+    <div class="sub">منظومة المزامنة الآلية</div>
+  </div>
+  <span id="apiStatus">جاري الاتصال...</span>
+</header>
+
+<div class="stats-bar">
+  <div class="stat-card"><div class="val" id="s-notifs">—</div><div class="lbl">إجمالي الإشعارات</div></div>
+  <div class="stat-card"><div class="val" id="s-new">—</div><div class="lbl">إشعارات جديدة</div></div>
+  <div class="stat-card"><div class="val" id="s-clients">—</div><div class="lbl">عملاء</div></div>
+  <div class="stat-card"><div class="val" id="s-files">—</div><div class="lbl">ملفات</div></div>
+  <div class="stat-card"><div class="val" id="s-syncs">—</div><div class="lbl">مزامنات</div></div>
+  <div class="stat-card"><div class="val" id="s-last" style="font-size:14px">—</div><div class="lbl">آخر مزامنة</div></div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('notifs')">الإشعارات</div>
+  <div class="tab" onclick="showTab('files')">الملفات</div>
+  <div class="tab" onclick="showTab('summary')">ملخص العملاء</div>
+  <div class="tab" onclick="showTab('synclogs')">سجل المزامنة</div>
+</div>
+
+<!-- Notifications -->
+<div class="panel active" id="panel-notifs">
+  <div class="toolbar">
+    <input id="n-search" placeholder="بحث باسم العميل..." onkeydown="if(event.key==='Enter')loadNotifs()">
+    <select id="n-sev">
+      <option value="">كل الأنواع</option>
+      <option value="عالي">عالي</option>
+      <option value="متوسط">متوسط</option>
+      <option value="منخفض">منخفض</option>
+    </select>
+    <button class="btn btn-primary" onclick="loadNotifs()">بحث</button>
+    <button class="btn btn-ghost" onclick="document.getElementById('n-search').value='';document.getElementById('n-sev').value='';loadNotifs()">مسح</button>
+    <span id="n-count" style="font-size:13px;color:var(--muted);margin-right:auto"></span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>العميل</th><th>الموضوع</th><th>النوع</th><th>التاريخ</th><th>حالة</th><th></th></tr></thead>
+      <tbody id="notifsTbody"><tr><td colspan="6" class="loading"><span class="spinner"></span> جاري التحميل...</td></tr></tbody>
+    </table>
+  </div>
+  <div class="pagination">
+    <button onclick="nPage(-1)" id="nPrev">السابق</button>
+    <span class="info" id="nPageInfo"></span>
+    <button onclick="nPage(1)" id="nNext">التالي</button>
+  </div>
+</div>
+
+<!-- Files -->
+<div class="panel" id="panel-files">
+  <div class="toolbar">
+    <input id="f-search" placeholder="بحث باسم العميل..." onkeydown="if(event.key==='Enter')loadFiles()">
+    <select id="f-danger">
+      <option value="">كل الملفات</option>
+      <option value="0">آمنة</option>
+      <option value="1">مشبوهة</option>
+    </select>
+    <button class="btn btn-primary" onclick="loadFiles()">بحث</button>
+    <button class="btn btn-ghost" onclick="document.getElementById('f-search').value='';document.getElementById('f-danger').value='';loadFiles()">مسح</button>
+    <span id="f-count" style="font-size:13px;color:var(--muted);margin-right:auto"></span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>العميل</th><th>اسم الملف</th><th>الحجم</th><th>المصدر</th><th>تاريخ المستند</th><th>تاريخ الانتهاء</th><th>التحميل</th><th>حالة</th><th></th></tr></thead>
+      <tbody id="filesTbody"><tr><td colspan="7" class="loading"><span class="spinner"></span> جاري التحميل...</td></tr></tbody>
+    </table>
+  </div>
+  <div class="pagination">
+    <button onclick="fPage(-1)" id="fPrev">السابق</button>
+    <span class="info" id="fPageInfo"></span>
+    <button onclick="fPage(1)" id="fNext">التالي</button>
+  </div>
+</div>
+
+<!-- Summary -->
+<div class="panel" id="panel-summary">
+  <div class="toolbar">
+    <input id="sm-search" placeholder="بحث باسم العميل..." onkeydown="if(event.key==='Enter')loadSummary()">
+    <select id="sm-status">
+      <option value="">كل الحالات</option>
+      <option value="SUCCESS">نجح</option>
+      <option value="FAILED">فشل</option>
+    </select>
+    <button class="btn btn-primary" onclick="loadSummary()">بحث</button>
+    <button class="btn btn-ghost" onclick="document.getElementById('sm-search').value='';document.getElementById('sm-status').value='';loadSummary()">مسح</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>العميل</th><th>الإشعارات</th><th>جديدة</th><th>الالتزامات</th><th>النماذج</th><th>المستندات</th><th>الحالة</th><th>تاريخ المزامنة</th></tr></thead>
+      <tbody id="summaryTbody"><tr><td colspan="8" class="loading"><span class="spinner"></span> جاري التحميل...</td></tr></tbody>
+    </table>
+  </div>
+  <div class="pagination">
+    <button onclick="smPage(-1)" id="smPrev">السابق</button>
+    <span class="info" id="smPageInfo"></span>
+    <button onclick="smPage(1)" id="smNext">التالي</button>
+  </div>
+</div>
+
+<!-- Sync Logs -->
+<div class="panel" id="panel-synclogs">
+  <div class="toolbar">
+    <button class="btn btn-primary" onclick="loadSyncLogs()">تحديث</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>بداية المزامنة</th><th>نهاية المزامنة</th><th>إجمالي العملاء</th><th>نجح</th><th>فشل</th><th>المدة</th></tr></thead>
+      <tbody id="synclogsTbody"><tr><td colspan="6" class="loading"><span class="spinner"></span> جاري التحميل...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Notification Detail Modal -->
+<div class="overlay" id="notifModal">
+  <div class="modal">
+    <button class="close" onclick="closeModal()">&#x2715;</button>
+    <h3 id="modalTitle">تفاصيل الإشعار</h3>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script>
+function fmt(dt){if(!dt)return'—';return String(dt).replace('T',' ').substring(0,16)}
+function fmtSize(b){if(!b)return'—';if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';return(b/1048576).toFixed(1)+' MB'}
+function fmtDur(s,e){if(!s||!e)return'—';const d=Math.round((new Date(e)-new Date(s))/1000);if(d<60)return d+'ث';if(d<3600)return Math.floor(d/60)+'د '+d%60+'ث';return Math.floor(d/3600)+'س '+Math.floor(d%3600/60)+'د'}
+function badge(t,c){return'<span class="badge badge-'+c+'">'+t+'</span>'}
+
+async function get(path){const r=await fetch(path);if(!r.ok)throw new Error(r.status);return r.json()}
+
+async function loadStats(){
+  try{
+    const d=await get('/stats');
+    document.getElementById('s-notifs').textContent=(d.total_notifications||0).toLocaleString();
+    document.getElementById('s-new').textContent=(d.new_notifications||0).toLocaleString();
+    document.getElementById('s-clients').textContent=(d.clients_with_notifs||0).toLocaleString();
+    document.getElementById('s-syncs').textContent=(d.total_syncs||0).toLocaleString();
+    document.getElementById('s-last').textContent=fmt(d.last_sync_date)||'—';
+    const el=document.getElementById('apiStatus');el.textContent='متصل ✓';el.className='ok';
+    const f=await get('/files?limit=1');
+    document.getElementById('s-files').textContent=(f.total||0).toLocaleString();
+  }catch(e){const el=document.getElementById('apiStatus');el.textContent='غير متصل';el.className='err'}
+}
+
+function showTab(name){
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    t.classList.toggle('active',['notifs','files','summary','synclogs'][i]===name);
+  });
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  if(name==='notifs'&&!_nL)loadNotifs();
+  if(name==='files'&&!_fL)loadFiles();
+  if(name==='summary'&&!_sL)loadSummary();
+  if(name==='synclogs')loadSyncLogs();
+}
+
+let _nP=0,_nT=0,_nL=false;
+async function loadNotifs(reset=true){
+  if(reset)_nP=0;_nL=true;
+  const q=new URLSearchParams({limit:50,offset:_nP*50});
+  const v=document.getElementById('n-search').value.trim();
+  const s=document.getElementById('n-sev').value;
+  if(v)q.set('client_name',v);if(s)q.set('severity',s);
+  const tb=document.getElementById('notifsTbody');
+  tb.innerHTML='<tr><td colspan="6" class="loading"><span class="spinner"></span></td></tr>';
+  try{
+    const d=await get('/notifications?'+q);_nT=d.total||0;
+    document.getElementById('n-count').textContent=_nT.toLocaleString()+' إشعار';
+    pg('n',_nP,_nT,50);
+    if(!d.data.length){tb.innerHTML='<tr><td colspan="6" class="empty">لا توجد إشعارات</td></tr>';return}
+    tb.innerHTML=d.data.map(r=>`<tr>
+      <td>${r.client_name||'—'}</td>
+      <td style="max-width:260px">${r.subject||'—'}</td>
+      <td>${badge(r.notif_type||'—','blue')}</td>
+      <td style="white-space:nowrap">${r.notif_date_str||fmt(r.first_sync_date)}</td>
+      <td>${r.is_new==1?badge('جديد','green'):badge('قديم','gray')}</td>
+      <td><button class="link-btn" onclick='openN(${JSON.stringify(r)})'>تفاصيل</button></td>
+    </tr>`).join('');
+  }catch(e){tb.innerHTML='<tr><td colspan="6" class="empty">خطأ في التحميل</td></tr>'}
+}
+function nPage(d){_nP=Math.max(0,_nP+d);loadNotifs(false)}
+
+let _fP=0,_fT=0,_fL=false;
+async function loadFiles(reset=true){
+  if(reset)_fP=0;_fL=true;
+  const q=new URLSearchParams({limit:50,offset:_fP*50});
+  const v=document.getElementById('f-search').value.trim();
+  const dg=document.getElementById('f-danger').value;
+  if(v)q.set('client_name',v);if(dg!=='')q.set('is_dangerous',dg);
+  const tb=document.getElementById('filesTbody');
+  tb.innerHTML='<tr><td colspan="9" class="loading"><span class="spinner"></span></td></tr>';
+  try{
+    const d=await get('/files?'+q);_fT=d.total||0;
+    document.getElementById('f-count').textContent=_fT.toLocaleString()+' ملف';
+    pg('f',_fP,_fT,50);
+    if(!d.data.length){tb.innerHTML='<tr><td colspan="9" class="empty">لا توجد ملفات</td></tr>';return}
+    tb.innerHTML=d.data.map(r=>`<tr>
+      <td>${r.client_name||'—'}</td>
+      <td>${r.file_name||'—'}</td>
+      <td>${fmtSize(r.file_size)}</td>
+      <td>${badge(r.source==='MYDOCS'?'مستنداتي':'إشعار',r.source==='MYDOCS'?'blue':'gray')}</td>
+      <td style="white-space:nowrap">${r.doc_date?fmt(r.doc_date):'—'}</td>
+      <td style="white-space:nowrap">${r.expiry_date?badge(fmt(r.expiry_date),'yellow'):'—'}</td>
+      <td style="white-space:nowrap">${fmt(r.download_date)}</td>
+      <td>${r.is_dangerous?badge('مشبوه','red'):badge('آمن','green')}</td>
+      <td>
+        <a href="/files/${r.id}/view" target="_blank" class="link-btn">فتح</a>
+        &nbsp;
+        <a href="/files/${r.id}/download" class="link-btn">تحميل</a>
+      </td>
+    </tr>`).join('');
+  }catch(e){tb.innerHTML='<tr><td colspan="9" class="empty">خطأ في التحميل</td></tr>'}
+}
+function fPage(d){_fP=Math.max(0,_fP+d);loadFiles(false)}
+
+let _sP=0,_sT=0,_sL=false;
+async function loadSummary(reset=true){
+  if(reset)_sP=0;_sL=true;
+  const q=new URLSearchParams({limit:100,offset:_sP*100});
+  const v=document.getElementById('sm-search').value.trim();
+  const st=document.getElementById('sm-status').value;
+  if(v)q.set('client_name',v);if(st)q.set('status',st);
+  const tb=document.getElementById('summaryTbody');
+  tb.innerHTML='<tr><td colspan="8" class="loading"><span class="spinner"></span></td></tr>';
+  try{
+    const d=await get('/summary?'+q);
+    pg('sm',_sP,d.count||0,100);
+    if(!d.data.length){tb.innerHTML='<tr><td colspan="8" class="empty">لا توجد بيانات</td></tr>';return}
+    tb.innerHTML=d.data.map(r=>`<tr>
+      <td>${r.client_name||'—'}</td>
+      <td style="text-align:center">${r.notifications_count||0}</td>
+      <td style="text-align:center">${(r.new_notifications_count||0)>0?badge(r.new_notifications_count,'green'):0}</td>
+      <td style="text-align:center">${r.obligations_count||0}</td>
+      <td style="text-align:center">${r.forms_count||0}</td>
+      <td style="text-align:center">${r.docs_count||0}</td>
+      <td>${r.status==='SUCCESS'?badge('نجح','green'):badge('فشل','red')}</td>
+      <td style="white-space:nowrap">${fmt(r.sync_date)}</td>
+    </tr>`).join('');
+  }catch(e){tb.innerHTML='<tr><td colspan="8" class="empty">خطأ في التحميل</td></tr>'}
+}
+function smPage(d){_sP=Math.max(0,_sP+d);loadSummary(false)}
+
+async function loadSyncLogs(){
+  const tb=document.getElementById('synclogsTbody');
+  tb.innerHTML='<tr><td colspan="6" class="loading"><span class="spinner"></span></td></tr>';
+  try{
+    const d=await get('/sync/logs?limit=20');
+    if(!d.data.length){tb.innerHTML='<tr><td colspan="6" class="empty">لا يوجد سجل بعد</td></tr>';return}
+    tb.innerHTML=d.data.map(r=>`<tr>
+      <td>${fmt(r.sync_start)}</td>
+      <td>${fmt(r.sync_end)}</td>
+      <td style="text-align:center">${r.total_clients||0}</td>
+      <td style="text-align:center">${badge(r.success_count||0,'green')}</td>
+      <td style="text-align:center">${(r.failure_count||0)>0?badge(r.failure_count,'red'):badge(0,'gray')}</td>
+      <td>${fmtDur(r.sync_start,r.sync_end)}</td>
+    </tr>`).join('');
+  }catch(e){tb.innerHTML='<tr><td colspan="6" class="empty">خطأ في التحميل</td></tr>'}
+}
+
+function openN(r){
+  document.getElementById('modalTitle').textContent=r.subject||'إشعار';
+  document.getElementById('modalContent').innerHTML=`
+    <div class="row"><b>العميل</b><span>${r.client_name||'—'}</span></div>
+    <div class="row"><b>النوع</b><span>${r.notif_type||'—'}</span></div>
+    <div class="row"><b>الأهمية</b><span>${r.severity||'—'}</span></div>
+    <div class="row"><b>التاريخ</b><span>${r.notif_date_str||fmt(r.first_sync_date)}</span></div>
+    <div class="row"><b>تاريخ المزامنة</b><span>${fmt(r.first_sync_date)}</span></div>
+    <div class="row"><b>الحالة</b><span>${r.read_status||'—'}</span></div>
+    ${r.message_body?'<div class="body-text">'+String(r.message_body).replace(/</g,'&lt;')+'</div>':''}
+  `;
+  document.getElementById('notifModal').classList.add('open');
+}
+function closeModal(){document.getElementById('notifModal').classList.remove('open')}
+document.getElementById('notifModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal()});
+
+function pg(prefix,page,total,limit){
+  const pages=Math.ceil(total/limit)||1;
+  document.getElementById(prefix+'PageInfo').textContent='صفحة '+(page+1)+' من '+pages;
+  document.getElementById(prefix+'Prev').disabled=page===0;
+  document.getElementById(prefix+'Next').disabled=(page+1)*limit>=total;
+}
+
+loadStats();
+loadNotifs();
+setInterval(loadStats,30000);
+</script>
+</body>
+</html>

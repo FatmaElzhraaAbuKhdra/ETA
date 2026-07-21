@@ -1,0 +1,19 @@
+# Secrets
+.env
+
+# Runtime output
+logs/
+documents/
+__pycache__/
+*.pyc
+*.pyo
+
+# Dev / debug tools
+dev_tools/*.png
+dev_tools/*.html
+dev_tools/*.txt
+
+# PyInstaller
+build/
+dist/
+*.spec
