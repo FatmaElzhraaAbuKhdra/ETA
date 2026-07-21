@@ -103,6 +103,8 @@ class ETAScraper:
     def __init__(self):
         self._playwright = None
         self._browser: Optional[Browser] = None
+        self._last_login_error_type = ''
+        self._last_login_error_msg  = ''
 
     async def start(self) -> None:
         self._playwright = await async_playwright().start()
@@ -143,6 +145,8 @@ class ETAScraper:
             await asyncio.sleep(2)
         except Exception as e:
             logger.error(f"[{client_name}] login page load failed: {e}")
+            self._last_login_error_type = 'PAGE_LOAD_ERROR'
+            self._last_login_error_msg  = str(e)
             await _screenshot(page, client_name, 'goto_login')
             return False
 
@@ -158,6 +162,8 @@ class ETAScraper:
                     continue
             if not filled:
                 logger.error(f"[{client_name}] {field} field not found")
+                self._last_login_error_type = 'FIELD_NOT_FOUND'
+                self._last_login_error_msg  = f'{field} field not found'
                 await _screenshot(page, client_name, f'{field}_field')
                 return False
 
@@ -177,6 +183,8 @@ class ETAScraper:
                 pass
         if not clicked:
             logger.error(f"[{client_name}] submit button not found")
+            self._last_login_error_type = 'FIELD_NOT_FOUND'
+            self._last_login_error_msg  = 'submit button not found'
             await _screenshot(page, client_name, 'submit')
             return False
 
@@ -187,6 +195,16 @@ class ETAScraper:
             )
         except PWTimeoutError:
             err = await _safe_text(page, '#input-error, .pf-c-alert__description, [class*="error"]')
+            err_l = (err or '').lower()
+            if any(k in err_l for k in ['password', 'كلمة المرور', 'رمز المرور']):
+                self._last_login_error_type = 'WRONG_PASSWORD'
+            elif any(k in err_l for k in ['username', 'user', 'اسم المستخدم', 'مستخدم']):
+                self._last_login_error_type = 'WRONG_USERNAME'
+            elif any(k in err_l for k in ['lock', 'مقفل', 'محظور', 'blocked']):
+                self._last_login_error_type = 'ACCOUNT_LOCKED'
+            else:
+                self._last_login_error_type = 'LOGIN_TIMEOUT'
+            self._last_login_error_msg = err or page.url
             logger.error(f"[{client_name}] login timeout — {err or page.url}")
             await _screenshot(page, client_name, 'login_timeout')
             return False
@@ -204,6 +222,8 @@ class ETAScraper:
 
         if 'auth.eta.gov.eg' in page.url or 'login' in page.url.lower():
             logger.error(f"[{client_name}] redirected back to login — bad credentials")
+            self._last_login_error_type = 'BAD_CREDENTIALS'
+            self._last_login_error_msg  = f'redirected to: {page.url}'
             return False
 
         return True
@@ -771,11 +791,14 @@ class ETAScraper:
         uname = client.get('sap_username', '')
         pwd   = client.get('sap_password', '')
 
+        self._last_login_error_type = ''
+        self._last_login_error_msg  = ''
         result = {
             'client_id':     cid,
             'client_name':   cname,
             'success':       False,
             'error':         '',
+            'error_type':    '',
             'counts':        {'notifications': 0, 'obligations': 0, 'forms': 0, 'documents': 0},
             'notifications': [],
         }
@@ -794,7 +817,9 @@ class ETAScraper:
                 await asyncio.sleep(config.RETRY_DELAY)
 
             if not logged_in:
-                result['error'] = 'Login failed after all retries'
+                result['error']            = 'Login failed after all retries'
+                result['error_type']       = self._last_login_error_type or 'LOGIN_FAILED'
+                result['error_msg_detail'] = self._last_login_error_msg
                 return result
 
             result['counts']        = await self.get_home_counts(page, cname)

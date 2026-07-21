@@ -411,6 +411,27 @@ class DBManager:
         raw   = f"{client_id}|{subj}|{date}|{ntype}"
         return hashlib.sha256(raw.encode('utf-8')).hexdigest()
 
+    def save_sync_error(
+        self,
+        client_id: str,
+        client_name: str,
+        username: str,
+        step: int,
+        error_type: str,
+        error_msg: str,
+    ) -> None:
+        with self.get_conn() as conn:
+            conn.cursor().execute("""
+                INSERT INTO APEX_SYNC_ERRORS
+                    (CLIENT_ID, CLIENT_NAME, USERNAME, STEP, ERROR_TYPE, ERROR_MSG)
+                VALUES (:1,:2,:3,:4,:5,:6)
+            """, [
+                client_id, client_name, username, step,
+                (error_type or 'UNKNOWN')[:50],
+                (error_msg or '')[:4000],
+            ])
+        logger.info(f"Sync error saved: [{client_name}] {error_type}")
+
     def save_sync_log(
         self,
         sync_start: datetime,

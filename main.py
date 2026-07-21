@@ -76,6 +76,18 @@ async def process_all_clients(clients: List[Dict], scraper: ETAScraper,
                 else:
                     failure += 1
                     line = f"ERR [{cname}] {result.get('error','')}"
+                    if result.get('error_type'):
+                        try:
+                            db.save_sync_error(
+                                client_id=result['client_id'],
+                                client_name=result['client_name'],
+                                username=client.get('sap_username', ''),
+                                step=1,
+                                error_type=result['error_type'],
+                                error_msg=result.get('error_msg_detail') or result.get('error', ''),
+                            )
+                        except Exception:
+                            pass
 
                 log.append(line)
                 logger.info(line)
