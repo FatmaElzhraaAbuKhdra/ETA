@@ -422,10 +422,22 @@ class DBManager:
     ) -> None:
         with self.get_conn() as conn:
             conn.cursor().execute("""
-                INSERT INTO APEX_SYNC_ERRORS
-                    (CLIENT_ID, CLIENT_NAME, USERNAME, STEP, ERROR_TYPE, ERROR_MSG)
-                VALUES (:1,:2,:3,:4,:5,:6)
+                MERGE INTO APEX_SYNC_ERRORS t
+                USING (SELECT :1 AS CLIENT_ID FROM DUAL) s
+                ON (t.CLIENT_ID = s.CLIENT_ID AND t.RESOLVED = 0)
+                WHEN MATCHED THEN
+                    UPDATE SET t.ERROR_TYPE = :2,
+                               t.ERROR_MSG  = :3,
+                               t.USERNAME   = :4,
+                               t.ERROR_DATE = SYSTIMESTAMP
+                WHEN NOT MATCHED THEN
+                    INSERT (CLIENT_ID, CLIENT_NAME, USERNAME, STEP, ERROR_TYPE, ERROR_MSG)
+                    VALUES (:5, :6, :7, :8, :9, :10)
             """, [
+                client_id,
+                (error_type or 'UNKNOWN')[:50],
+                (error_msg or '')[:4000],
+                username,
                 client_id, client_name, username, step,
                 (error_type or 'UNKNOWN')[:50],
                 (error_msg or '')[:4000],
