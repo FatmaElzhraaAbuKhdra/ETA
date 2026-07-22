@@ -71,6 +71,10 @@ async def process_all_clients(clients: List[Dict], scraper: ETAScraper,
 
                 if result['success']:
                     success += 1
+                    try:
+                        db.resolve_sync_error(result['client_id'])
+                    except Exception:
+                        pass
                     line = (f"OK  [{cname}] notifs={len(notifs)}(+{new_notifs}) "
                             f"obligations={counts.get('obligations',0)} forms={counts.get('forms',0)}")
                 else:

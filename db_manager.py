@@ -444,6 +444,17 @@ class DBManager:
             ])
         logger.info(f"Sync error saved: [{client_name}] {error_type}")
 
+    def resolve_sync_error(self, client_id: str) -> None:
+        with self.get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                UPDATE APEX_SYNC_ERRORS
+                SET RESOLVED = 1
+                WHERE CLIENT_ID = :1 AND RESOLVED = 0
+            """, [client_id])
+            if cur.rowcount:
+                logger.info(f"Sync error resolved for client_id={client_id}")
+
     def save_sync_log(
         self,
         sync_start: datetime,
